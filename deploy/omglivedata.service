@@ -1,0 +1,13 @@
+[Unit]
+Description=start 12 gunicorn instance to serve omglivedata
+After=network.target
+
+[Service]
+User=nginx
+Group=root
+WorkingDirectory=/var/www/flask_apps/omglivedata
+Environment="PATH=/var/www/flask_apps/omglivedata/venv"
+ExecStart=/var/www/flask_apps/omglivedata/venv/bin/gunicorn -k flask_sockets.worker omglivedata:app --error-logfile dcue.log --bind unix:omglivedata.sock --log-level debug -m 007 --workers 12
+
+[Install]
+WantedBy=multi-user.target

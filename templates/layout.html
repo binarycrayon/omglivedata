@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE">
+    <link rel="stylesheet" type="text/css" href="http://www.spimageworks.com/frameworks/epochjs/0.8.4/dist/css/epoch.min.css">
+    <link rel="stylesheet" type="text/css" href="http://www.spimageworks.com/frameworks/bootstrap/3.3.4/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css"
+    href="http://www.spimageworks.com/frameworks/bootstrap/3.3.4/css/bootstrap-darkly.min.css">
+    <style>
+      body {
+        background: #3b3b3b;
+        color: white;
+      }
+
+      a {
+        color: white;
+      }
+
+      .chart {
+        width: 850px;
+        height: 80px;
+        margin-top: 30px;
+      }
+    </style>
+    <title>cue3 total read/write count</title>
+
+  </head>
+  <body>
+    <nav class="navbar navbar-inverse">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="#">
+          Dcue: Realtime Cue3 filer IO monitoring (beta)
+          </a>
+        </div>
+      </div>
+    </nav>
+    <div class="container-fluid">
+      <div id="conn_status">Not connected</div>
+      <div>Blue for read, Brown for write</div>
+      <div id="filers"></div>
+      <div id="chart-container" class="epoch-theme-dark row"></div>
+    </div>
+    <script src="http://www.spimageworks.com/frameworks/jquery/1.11.1/jquery-1.11.1.min.js"></script>
+    <script src="http://www.spimageworks.com/frameworks/bootstrap/3.3.4/bootstrap.min.js"></script>
+    <script src="http://www.spimageworks.com/frameworks/d3/3.5.16/d3.min.js"></script>
+    <script src="http://www.spimageworks.com/frameworks/epochjs/0.8.4/dist/js/epoch.min.js"></script>
+
+    <script type="text/javascript">
+        $(function() {
+            var filers = {{ filers | safe }};
+            var timestamp = function() {
+              return (new Date).getTime() / 1000;
+            }
+
+
+            var charts = {};
+
+            $.each(filers, function(i, name){
+              $("#chart-container").append("<div id='"
+                + name + "' class='epoch category40 chart'></div>");
+
+              charts[name] = $('#'+ name).epoch({
+                  type: "time.line",
+                  axes: ["left", "bottom", "right"],
+                  data: [
+                    {label: "reads", values:[{time: timestamp(), y: 0}]},
+                    {label: "writes", values:[{time: timestamp(), y: 0}]}
+                  ]
+              });
+
+              var a = $('#' + name).wrap("<div class='col-md-6' id=" + name + '-container' + "></div>");
+              $("#" + name + "-container").prepend("<a href=#"
+                + name + " style='position:absolute'>" + name + "</div> <br/>");
+            });
+
+
+            var pushTimeFlow = function() {
+              var timestamp = ((new Date()).getTime() / 1000) | 0;
+              $.each(charts, function(key, value) {
+                value.push([{time: timestamp, y: 0}, {time: timestamp, y: 0}]);
+              });
+            }
+
+            var ws = new WebSocket("ws://" + window.location.hostname + "/data/reads");
+            // What do we do when we get a message?
+            ws.onmessage = function(evt) {
+              var data = JSON.parse(evt.data);
+              if(data.new_val !== undefined) {
+                data = data.new_val;
+                charts[data.filer].push([{time: data.dcue_timestamp, y: data.size},{}]);
+              }
+            }
+            // Just update our conn_status field with the connection status
+            ws.onopen = function(evt) {
+                $('#conn_status').html('<b>WebSocket Status: Connected</b>');
+            }
+            ws.onerror = function(evt) {
+                $('#conn_status').html('<b>WebSocket Status: Error</b>');
+            }
+            ws.onclose = function(evt) {
+                $('#conn_status').html('<b>WebSocket Status: Closed</b>');
+            }
+
+            var writeSocket = new WebSocket("ws://" + window.location.hostname + "/data/writes");
+            // What do we do when we get a message?
+            writeSocket.onmessage = function(evt) {
+              var data = JSON.parse(evt.data);
+              if(data.new_val !== undefined) {
+                data = data.new_val;
+                if(!charts.hasOwnProperty(data.filer)) {
+                  console.log(data.filer);
+                }
+                charts[data.filer].push([{time: data.dcue_timestamp, y: data.size},{}]);
+              }
+            }
+
+            setInterval(pushTimeFlow, 1000)
+        });
+    </script>
+  </body>
+
+</html>

@@ -10,5 +10,5 @@ make runserver
 ### start ingestion:
 make ingest
 
-# look at dashboard:
+### look at dashboard:
 browse to localhost:8000

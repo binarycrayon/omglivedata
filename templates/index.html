@@ -6,6 +6,21 @@
     <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/epoch/0.8.4/css/epoch.min.css">
     <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.4/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootswatch/3.3.7/darkly/bootstrap.min.css">
+    <style>
+      body {
+        background: #3b3b3b;
+        color: white;
+      }
+
+      a {
+        color: white;
+      }
+
+      .chart {
+        height: 80px;
+        margin: 30px;
+      }
+    </style>
     <title>omglivedata</title>
 
   </head>
@@ -21,8 +36,7 @@
     </nav>
     <div class="container-fluid">
       <div id="conn_status">Not connected</div>
-      <div>Blue for read, Brown for write</div>
-      <div id="filers"></div>
+      <div id="metrics"></div>
       <div id="chart-container" class="epoch-theme-dark row"></div>
     </div>
     <script src="//cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.min.js"></script>
@@ -33,30 +47,51 @@
 
     <script type="text/javascript">
         $(function() {
-            var filers = {{ filers | safe }};
+            var metrics = {{ metrics | safe }};
             var timestamp = function() {
               return (new Date).getTime() / 1000;
             }
 
-
             var charts = {};
 
-            $.each(filers, function(i, name){
-              $("#chart-container").append("<div id='"
+            $.each(metrics, function(i, name){
+              $("#chart-container").append("<div class='row' id=row-" + name + "></div>");
+              $("#row-" + name)
+              .append("<div id='"
                 + name + "' class='epoch category40 chart'></div>");
 
               charts[name] = $('#'+ name).epoch({
                   type: "time.line",
                   axes: ["left", "bottom", "right"],
                   data: [
-                    {label: "reads", values:[{time: timestamp(), y: 0}]},
-                    {label: "writes", values:[{time: timestamp(), y: 0}]}
+                    {label: "data", values:[{time: timestamp(), y: 0}]},
                   ]
               });
 
-              var a = $('#' + name).wrap("<div class='col-md-6' id=" + name + '-container' + "></div>");
-              $("#" + name + "-container").prepend("<a href=#"
-                + name + " style='position:absolute'>" + name + "</div> <br/>");
+              $('#' + name).wrap("<div class='col-md-6' id=" + name + '-container' + "></div>");
+              $("#" + name + "-container").prepend("<label class='col-lg-2 control-label'>"
+               + name + "</span> <br/>");
+
+              var ws = new ReconnectingWebSocket("ws://" + location.host + "/channel/stream/" + name);
+
+              // What do we do when we get a message?
+              ws.onmessage = function(evt) {
+                var data = JSON.parse(evt.data);
+                if(data.new_val !== undefined) {
+                  data = data.new_val;
+                  charts[data['metric']].push([{time: data.timestamp, y: data.value}, {}]);
+                }
+              }
+              // Just update our conn_status field with the connection status
+              ws.onopen = function(evt) {
+                  $('#conn_status').html('<b>WebSocket Status: Connected</b>');
+              }
+              ws.onerror = function(evt) {
+                  $('#conn_status').html('<b>WebSocket Status: Error</b>');
+              }
+              ws.onclose = function(evt) {
+                  $('#conn_status').html('<b>WebSocket Status: Closed</b>');
+              }
             });
 
 
@@ -67,38 +102,6 @@
               });
             }
 
-            var ws = new ReconnectingWebSocket("ws://" + location.host + "/channel/stream");
-            // What do we do when we get a message?
-            ws.onmessage = function(evt) {
-              var data = JSON.parse(evt.data);
-              if(data.new_val !== undefined) {
-                data = data.new_val;
-                charts[data.filer].push([{time: data.dcue_timestamp, y: data.size},{}]);
-              }
-            }
-            // Just update our conn_status field with the connection status
-            ws.onopen = function(evt) {
-                $('#conn_status').html('<b>WebSocket Status: Connected</b>');
-            }
-            ws.onerror = function(evt) {
-                $('#conn_status').html('<b>WebSocket Status: Error</b>');
-            }
-            ws.onclose = function(evt) {
-                $('#conn_status').html('<b>WebSocket Status: Closed</b>');
-            }
-
-            var writeSocket = new ReconnectingWebSocket("ws://" + window.location.hostname + "/channel/writes");
-            // What do we do when we get a message?
-            writeSocket.onmessage = function(evt) {
-              var data = JSON.parse(evt.data);
-              if(data.new_val !== undefined) {
-                data = data.new_val;
-                if(!charts.hasOwnProperty(data.filer)) {
-                  console.log(data.filer);
-                }
-                charts[data.filer].push([{time: data.dcue_timestamp, y: data.size},{}]);
-              }
-            }
 
             setInterval(pushTimeFlow, 1000)
         });

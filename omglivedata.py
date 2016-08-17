@@ -1,3 +1,6 @@
+"""
+omglivedata main app
+"""
 
 import json, random, time, itertools, datetime
 from flask import Flask, request, render_template
@@ -5,33 +8,24 @@ from flask_sockets import Sockets
 from gevent import sleep
 import rethinkdb as r
 
+from config import Config
+from db_manager import connect_db, get_table_for_today
+
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
 sockets = Sockets(app)
 
-convert = lambda val: {
-                    'timestamp': val['timestamp'].to_epoch_time(),
-                    'filer': val['filer'],
-                    'size': val['size']
-                    }
 
-def get_db_table():
+@sockets.route('/channel/stream/<metric>')
+def stream_socket(ws, metric):
     """
-    read-weekday-2, read-weekday-3
+    websocket /channel/stream/<metric>
     """
-    current_day = datetime.datetime.now()
-    table_to_read = "weekday_{day}".format(
-            day=current_day.weekday())
-    return table_to_read
-
-
-
-@sockets.route('/channel/stream')
-def stream_socket(ws):
-    with r.connect(HOST, db=DATABASE, port=28015) as conn:
-        table = get_db_table()
-        cursor = r.table(table).pluck(['dcue_timestamp', 'filer', 'size']).map(convert).changes().run(conn)
+    with connect_db() as conn:
+        table = get_table_for_today(metric)
+        cursor = r.table(table).pluck(
+            ['metric', 'timestamp', 'value']).changes().run(conn)
         while True:
             try:
                 change = cursor.next(wait=False)
@@ -51,10 +45,10 @@ def stream_socket(ws):
 
 @app.route('/')
 def index():
-    # get a list of table
-    with r.connect(HOST, db=DATABASE, port=28015) as conn:
-        a = [i['filer'] for i in r.table(get_db_table('filer_reads')).pluck('filer').distinct().run(conn)]
-    return render_template("index.html", filers=json.dumps(list(set(a+b))))
+    """
+    render index
+    """
+    return render_template("index.html", metrics=json.dumps(Config.METRICS))
 
 
 if __name__ == "__main__":

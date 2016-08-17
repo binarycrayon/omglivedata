@@ -12,12 +12,6 @@ from db_manager import connect_db, get_table_for_today, setup_existing_table
 
 import rethinkdb as r
 
-# RethinkDB server.
-RDB_HOST = os.environ.get('RDB_HOST') or 'localhost'
-RDB_PORT = os.environ.get('RDB_PORT') or 28015
-RDB_DB = 'omglivedata'
-RDB_TABLE = 'stream'
-
 
 class UTC(tzinfo):
     """UTC"""
@@ -35,7 +29,8 @@ class UTC(tzinfo):
 def generate_data():
     seed()
     return {
-        'timestamp': r.now(),
+        'metric': choice(Config.METRICS),
+        'timestamp': r.now().to_epoch_time(),
         'value': randint(10, 100) / 10
     }
 
@@ -48,8 +43,7 @@ def ingest_data():
         while True:
             try:
                 data = generate_data()
-                metric = choice(Config.METRICS)
-                table = get_table_for_today(metric)
+                table = get_table_for_today(data['metric'])
                 r.table(table).insert(data).run(conn)
                 time.sleep(0.01)
             except r.errors.ReqlOpFailedError:

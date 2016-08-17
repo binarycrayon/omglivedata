@@ -1,6 +1,6 @@
 omglivedata is a project I put together to prototype monitor dashboard using rethinkdb changefeed and websocket.
 
-![Screenshot](/screenshot.png?raw=true "Screenshot")
+![Screenshot](/screen.png?raw=true "Screenshot")
 
 ### requirement
   * rethinkdb

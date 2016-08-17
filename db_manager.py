@@ -50,7 +50,7 @@ def get_tables_for_today():
     return [get_table_for_today(prefix) for prefix in Config.METRICS]
 
 
-def get_table_for_today(name_prefix):
+def get_table_for_today(name_prefix=Config.METRICS[0]):
     """
     read-weekday-2, read-weekday-3
     """

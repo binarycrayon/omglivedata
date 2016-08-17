@@ -5,11 +5,12 @@ Ingest data to rethinkdb
 import os
 from datetime import tzinfo, timedelta, datetime
 from multiprocessing import Pool
-from random import seed, randint
+from random import seed, randint, choice
 import time
+from config import Config
+from db_manager import connect_db, get_table_for_today, setup_existing_table
 
 import rethinkdb as r
-import forgery_py
 
 # RethinkDB server.
 RDB_HOST = os.environ.get('RDB_HOST') or 'localhost'
@@ -31,17 +32,11 @@ class UTC(tzinfo):
         return ZERO
 
 
-def random_datetime(past=False, min_delta=0, max_delta=20, tzinfo=UTC):
-    """Random `datetime.date` object. Delta args are days."""
-    delta = timedelta(seconds=forgery_py.date._delta(past, min_delta, max_delta))
-    return datetime.now(tzinfo()) + delta
-
-
 def generate_data():
     seed()
     return {
-        'timestamp': ,
-        'value'
+        'timestamp': r.now(),
+        'value': randint(10, 100) / 10
     }
 
 
@@ -49,11 +44,18 @@ def ingest_data():
     """
     Ingest documents to 'ingest' table
     """
-    with connect_to_db() as conn:
+    with connect_db() as conn:
         while True:
-            generate_data()
-            r.table(RDB_TABLE).insert(p).run(conn)
-            time.sleep(0.1)
+            try:
+                data = generate_data()
+                metric = choice(Config.METRICS)
+                table = get_table_for_today(metric)
+                r.table(table).insert(data).run(conn)
+                time.sleep(0.01)
+            except r.errors.ReqlOpFailedError:
+                setup_existing_table()
+            except KeyboardInterrupt:
+                return
 
 
 if __name__ == "__main__":

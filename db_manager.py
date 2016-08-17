@@ -13,6 +13,7 @@ connect_db_host = lambda: r.connect(Config.DB_HOST, port=Config.DB_PORT)
 connect_db = lambda: r.connect(Config.DB_HOST, db=Config.DB_NAME,
     port=Config.DB_PORT)
 # setup logger
+
 logger_error = logging.getLogger('omglivedata_error')
 logger_info = logging.getLogger('omglivedata_info')
 
@@ -21,7 +22,7 @@ def create_db():
     """
     create db
     """
-    with connect_db_host as conn:
+    with connect_db_host() as conn:
         r.db_create(Config.DB_NAME).run(conn)
 
 
@@ -46,7 +47,7 @@ def get_tables_for_tomorrow():
 
 
 def get_tables_for_today():
-    return [get_table_for_today(prefix) for prefix in TABLE_PREFIX]
+    return [get_table_for_today(prefix) for prefix in Config.METRICS]
 
 
 def get_table_for_today(name_prefix):
@@ -85,15 +86,14 @@ def setup_existing_table():
             r.db_create(Config.DB_NAME).run(conn)
         except r.errors.ReqlOpFailedError as e:
             logger_error.error('db {0} already exists.'.format(Config.DB_NAME))
-        for table in [get_table_for_today(i) for i in TABLE_PREFIX]:
+        for table in [get_table_for_today(i) for i in Config.METRICS]:
             try:
                 logger_info.info('creating table {0}'.format(table))
-                r.db(DB_NAME).table_create(table, durability='soft',
-                    shards=Config.SHARDS).run(conn)
-            except r.errors.ReqlOpFailedError:
-                print 'table {0} exits'.format(table)
-            finally:
+                r.db(Config.DB_NAME).table_create(table, durability='soft',
+                    shards=Config.DB_SHARDS).run(conn)
                 create_index(table, conn)
+            except r.errors.ReqlOpFailedError:
+                print 'table {0} exists'.format(table)
 
 
 def check_and_create_table_for_today():

@@ -25,7 +25,7 @@ def stream_socket(ws, metric):
     with connect_db() as conn:
         table = get_table_for_today(metric)
         cursor = r.table(table).pluck(
-            ['metric', 'timestamp', 'value']).changes().run(conn)
+            ['metric', 'timestamp', 'value']).changes(squash=1).run(conn)
         while True:
             try:
                 change = cursor.next(wait=False)
@@ -37,8 +37,7 @@ def stream_socket(ws, metric):
                     'y': 0
                     }))
             except r.errors.ReqlOpFailedError as e:
-                # table may not exist
-                print e
+                # table may not exist yet
                 continue
             sleep(0.5)
 

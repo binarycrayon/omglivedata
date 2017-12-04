@@ -77,7 +77,6 @@ def schedule_check_and_create_table():
 def setup_existing_table():
     try:
         create_db()
-        logger_info.info('creating table {0}'.format(table))
     except r.errors.ReqlOpFailedError as e:
         logger_error.exception(e)
         logger_error.error('db already exists.')
@@ -93,7 +92,7 @@ def setup_existing_table():
                     shards=Config.DB_SHARDS).run(conn)
                 create_index(table, conn)
             except r.errors.ReqlOpFailedError:
-                print 'table {0} exists'.format(table)
+                logger_error.error('table {0} exists')
 
 
 def check_and_create_table_for_today():

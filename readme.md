@@ -1,5 +1,5 @@
 omglivedata is a project I put together to prototype monitor dashboard using rethinkdb changefeed and websocket.
-It requires python27, rethinkdb, gunicorn and gevent.
+It is python3 friendly, requires rethinkdb, gunicorn and gevent.
 
 ![Screenshot](/screen.png?raw=true "Screenshot")
 
